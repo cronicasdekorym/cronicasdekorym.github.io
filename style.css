@@ -456,3 +456,221 @@ button {
     text-align: center;
   }
 }
+
+/* ==========================================
+   KORYM - LEITOR PAGINADO
+   Desktop: duas paginas
+   Mobile: uma pagina
+   ========================================== */
+
+.paged-stage {
+  min-height: calc(100dvh - 76px);
+  padding: 12px 16px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.paged-reader {
+  width: 100%;
+  max-width: 1120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.paged-book {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  filter: drop-shadow(0 12px 24px #0008);
+}
+
+.paged-sheet {
+  min-width: 0;
+  height: calc(100dvh - 175px);
+  min-height: 350px;
+  background: linear-gradient(
+    100deg,
+    #bd9a6c 0%,
+    #e8d5b1 7%,
+    #f3e5c9 80%,
+    #d1b58c 100%
+  );
+  color: #35271f;
+  border: 7px solid #6d3b25;
+  outline: 2px solid #c79a4e;
+  outline-offset: -12px;
+  box-shadow:
+    inset 0 0 0 12px #e3ccaa,
+    inset 0 0 0 13px #a27b49;
+  overflow: hidden;
+}
+
+.paged-sheet:first-child {
+  border-radius: 12px 0 0 12px;
+  border-right: 2px solid #a68559;
+}
+
+.paged-sheet:last-child {
+  border-radius: 0 12px 12px 0;
+  border-left: 2px solid #b1936a;
+}
+
+.paged-content {
+  height: 100%;
+  padding: 30px 34px;
+  overflow: hidden;
+  font-size: clamp(15px, 1.3vw, 18px);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.paged-inner {
+  width: 100%;
+}
+
+.paged-inner p {
+  margin: 0 0 1em;
+  text-align: left;
+}
+
+.paged-inner h1,
+.paged-inner h2,
+.paged-inner h3 {
+  font-family: Cinzel, Georgia, serif;
+  color: #593622;
+  line-height: 1.35;
+}
+
+.paged-chapter-heading {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.paged-chapter-heading h1 {
+  font-size: clamp(19px, 2vw, 27px);
+  text-align: center;
+  margin: 14px 0;
+}
+
+.paged-chapter-heading .ornament {
+  margin: 12px 0;
+}
+
+.paged-controls {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  color: #f0d5a5;
+}
+
+.paged-controls button {
+  background: #5a3320;
+  color: #ffe5b5;
+  border: 1px solid #a8814d;
+  border-radius: 6px;
+  padding: 10px 18px;
+}
+
+.paged-controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+#pageStatus {
+  min-width: 100px;
+  text-align: center;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.paged-links {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.paged-links .action {
+  padding: 7px 14px;
+  font-size: 0.85rem;
+}
+
+/* Area invisivel usada para calcular as paginas */
+.paged-measure {
+  position: fixed;
+  left: -99999px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+/* ==========================================
+   IPHONE / TELAS PEQUENAS
+   ========================================== */
+
+@media (max-width: 680px) {
+  .paged-stage {
+    min-height: calc(100dvh - 63px);
+    padding: 8px 10px 12px;
+  }
+
+  .paged-reader {
+    gap: 8px;
+  }
+
+  .paged-book {
+    display: block;
+    max-width: 550px;
+  }
+
+  .paged-sheet {
+    height: calc(100dvh - 205px - env(safe-area-inset-bottom));
+    min-height: 260px;
+    border-radius: 9px !important;
+    border: 6px solid #6d3b25 !important;
+  }
+
+  .paged-sheet[hidden] {
+    display: none !important;
+  }
+
+  .paged-content {
+    padding: 20px 21px;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  .paged-chapter-heading h1 {
+    font-size: 19px;
+  }
+
+  .paged-controls {
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .paged-controls button {
+    padding: 10px 12px;
+    font-size: 0.82rem;
+  }
+
+  #pageStatus {
+    min-width: 72px;
+    font-size: 0.78rem;
+  }
+
+  .paged-links {
+    gap: 8px;
+  }
+
+  .paged-links .action {
+    font-size: 0.78rem;
+    padding: 7px 10px;
+  }
+}
+

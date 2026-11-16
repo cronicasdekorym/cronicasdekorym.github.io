@@ -1,6 +1,9 @@
 
 const app = document.querySelector('#app');
 
+const VISITOR_COUNTER_URL =
+  'https://abacus.jasoncameron.dev/hit/biblioteca-korym/visitas';
+
 const books = {
   origem: {
     title: 'A Origem',
@@ -22,22 +25,22 @@ const books = {
   }
 };
 
-const VISITOR_COUNTER_URL =
-  'https://abacus.jasoncameron.dev/hit/biblioteca-korym/visitas';
+const chapterCode = n => String(n).padStart(3, '0');
 
-function chapterCode(n) {
-  return String(n).padStart(3, '0');
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, x => ({
+const escapeHtml = s => String(s).replace(
+  /[&<>"']/g,
+  x => ({
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
     "'": '&#39;'
-  }[x]));
-}
+  }[x])
+);
+
+let currentReader = null;
+let resizeTimer;
+let goLastPage = false;
 
 function go(path) {
   if (location.hash.slice(1) === path) {
@@ -68,51 +71,50 @@ function home() {
 }
 
 function bookIntro(which) {
-  const book = books[which];
+  const b = books[which];
 
   return `<section class="paper-stage">
-    <div class="openbook turn">
+    <div class="openbook">
       <article class="page">
         <div class="eyebrow">
-          AS CRÔNICAS DE KORYM · LIVRO ${book.numeral}
+          AS CRÔNICAS DE KORYM · LIVRO ${b.numeral}
         </div>
-        <h1>${book.title}</h1>
+        <h1>${b.title}</h1>
         <div class="ornament">✦ ───── ✦ ───── ✦</div>
-        <p class="intro-text">${book.intro}</p>
+        <p class="intro-text">${b.intro}</p>
         <div class="page-actions">
           ${btn('← Biblioteca', 'home')}
           ${btn('Avançar página →', 'indice/' + which)}
         </div>
       </article>
       <article class="page desktop-only">
-        <h2>${book.subtitle}</h2>
+        <h2>${b.subtitle}</h2>
         <div class="ornament">✧</div>
-        <p class="intro-text">${book.description}</p>
+        <p class="intro-text">${b.description}</p>
       </article>
     </div>
   </section>`;
 }
 
 function indexPage(which) {
-  const book = books[which];
+  const b = books[which];
 
-  if (!book.loaded) {
+  if (!b.loaded) {
     return `<section class="reader-stage">
       <div class="reading">Carregando índice…</div>
     </section>`;
   }
 
-  if (!book.chapters.length) {
+  if (!b.chapters.length) {
     return `<section class="reader-stage">
       <div class="reading">
-        Os capítulos de ${book.title} não estão disponíveis.
-        ${btn('← Biblioteca', 'home')}
+        Capítulos indisponíveis.
+        ${btn('Biblioteca', 'home')}
       </div>
     </section>`;
   }
 
-  const chapters = book.chapters;
-  const half = Math.ceil(chapters.length / 2);
+  const half = Math.ceil(b.chapters.length / 2);
 
   const col = arr => `<ol class="index-list">
     ${arr.map(c => `<li>
@@ -124,14 +126,14 @@ function indexPage(which) {
   </ol>`;
 
   return `<section class="paper-stage">
-    <div class="openbook turn">
+    <div class="openbook">
       <article class="page index-page">
-        <h2>Índice · ${book.title}</h2>
-        ${col(chapters.slice(0, half))}
+        <h2>Índice · ${b.title}</h2>
+        ${col(b.chapters.slice(0, half))}
       </article>
       <article class="page index-page">
         <h2 class="desktop-only">Continuação</h2>
-        ${col(chapters.slice(half))}
+        ${col(b.chapters.slice(half))}
         <div class="page-actions">
           ${btn('← Introdução', which)}
         </div>
@@ -140,58 +142,9 @@ function indexPage(which) {
   </section>`;
 }
 
-function reader(which, n) {
-  const book = books[which];
-
-  if (!book.loaded) {
-    return `<section class="reader-stage">
-      <article class="reading">Carregando capítulo…</article>
-    </section>`;
-  }
-
-  const chapters = book.chapters;
-  const index = chapters.findIndex(c => Number(c.n) === n);
-
-  if (index < 0) {
-    return `<section class="reader-stage">
-      <article class="reading">
-        Capítulo indisponível.
-        ${btn('Voltar ao índice', 'indice/' + which)}
-      </article>
-    </section>`;
-  }
-
-  const c = chapters[index];
-  const previous = chapters[index - 1];
-  const next = chapters[index + 1];
-
-  return `<section class="reader-stage">
-    <article class="reading">
-      <p class="mini">
-        LIVRO ${book.numeral} — ${book.title.toUpperCase()}
-        · CAPÍTULO ${chapterCode(c.n)}
-      </p>
-      <h1>${chapterCode(c.n)} — ${escapeHtml(c.title)}</h1>
-      <div class="ornament">✦</div>
-      <div class="chapter-body">${c.html}</div>
-      <div class="chapter-nav">
-        ${previous
-          ? btn('← Capítulo anterior',
-              which + '/capitulo/' + chapterCode(previous.n))
-          : btn('← Índice', 'indice/' + which)}
-        ${btn('Índice', 'indice/' + which)}
-        ${next
-          ? btn('Próximo capítulo →',
-              which + '/capitulo/' + chapterCode(next.n))
-          : btn('Voltar à biblioteca', 'home')}
-      </div>
-    </article>
-  </section>`;
-}
-
 function records() {
   return `<section class="paper-stage">
-    <div class="openbook turn">
+    <div class="openbook">
       <article class="page">
         <h1>Registros de Kor’hal</h1>
         <div class="ornament">✧</div>
@@ -215,6 +168,309 @@ function records() {
   </section>`;
 }
 
+function reader(which, n) {
+  const b = books[which];
+
+  if (!b.loaded) {
+    return `<section class="reader-stage">
+      <div class="reading">Carregando capítulo…</div>
+    </section>`;
+  }
+
+  const idx = b.chapters.findIndex(c => Number(c.n) === n);
+
+  if (idx < 0) {
+    return `<section class="reader-stage">
+      <div class="reading">
+        Capítulo indisponível.
+        ${btn('Voltar ao índice', 'indice/' + which)}
+      </div>
+    </section>`;
+  }
+
+  return `<section class="reader-stage paged-stage">
+    <div class="paged-reader">
+      <div class="paged-book" id="pagedBook">
+        <article class="paged-sheet">
+          <div class="paged-content" id="pageLeft"></div>
+        </article>
+        <article class="paged-sheet" id="rightSheet">
+          <div class="paged-content" id="pageRight"></div>
+        </article>
+      </div>
+
+      <nav class="paged-controls" aria-label="Navegação de páginas">
+        <button id="prevPage" type="button">← Anterior</button>
+        <span id="pageStatus" aria-live="polite"></span>
+        <button id="nextPage" type="button">Próxima →</button>
+      </nav>
+
+      <div class="paged-links">
+        ${btn('Índice', 'indice/' + which)}
+        ${btn('Biblioteca', 'home')}
+      </div>
+    </div>
+  </section>`;
+}
+
+function makeBlocks(html) {
+  const holder = document.createElement('div');
+  holder.innerHTML = html;
+
+  const blocks = [];
+
+  for (const node of Array.from(holder.childNodes)) {
+    if (node.nodeType === 3) {
+      const t = node.textContent.trim();
+
+      if (t) {
+        const p = document.createElement('p');
+        p.textContent = t;
+        blocks.push(p);
+      }
+    } else if (node.nodeType === 1) {
+      if (
+        node.tagName === 'DIV' &&
+        node.classList.contains('chapter-body')
+      ) {
+        blocks.push(
+          ...Array.from(node.children).map(x => x.cloneNode(true))
+        );
+      } else {
+        blocks.push(node.cloneNode(true));
+      }
+    }
+  }
+
+  return blocks;
+}
+
+function buildPages(which, n) {
+  const b = books[which];
+  const idx = b.chapters.findIndex(c => Number(c.n) === n);
+  const c = b.chapters[idx];
+
+  const left = document.getElementById('pageLeft');
+  if (!left || !c) return;
+
+  const sheet = document.querySelector('.paged-sheet');
+
+  const measure = document.createElement('div');
+  measure.className = 'paged-content paged-measure';
+  measure.style.width = sheet.clientWidth + 'px';
+  measure.style.height = sheet.clientHeight + 'px';
+
+  document.body.appendChild(measure);
+
+  const pages = [];
+
+  let page = document.createElement('div');
+  page.className = 'paged-inner';
+  measure.appendChild(page);
+
+  const available = () =>
+    measure.clientHeight -
+    parseFloat(getComputedStyle(measure).paddingTop) -
+    parseFloat(getComputedStyle(measure).paddingBottom);
+
+  const fits = () => page.scrollHeight <= available() + 1;
+
+  const finish = () => {
+    if (page.childNodes.length) {
+      pages.push(page.innerHTML);
+    }
+
+    page = document.createElement('div');
+    page.className = 'paged-inner';
+    measure.replaceChildren(page);
+  };
+
+  const addBlock = block => {
+    page.appendChild(block);
+
+    if (fits()) return;
+
+    page.removeChild(block);
+
+    if (page.childNodes.length) {
+      finish();
+      page.appendChild(block);
+
+      if (fits()) return;
+
+      page.removeChild(block);
+    }
+
+    // Parágrafos longos são divididos entre palavras.
+    const words = (block.textContent || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (!words.length) return;
+
+    const tag = /^(P|BLOCKQUOTE|LI)$/.test(block.tagName)
+      ? block.tagName
+      : 'P';
+
+    let start = 0;
+
+    while (start < words.length) {
+      let low = 1;
+      let high = words.length - start;
+      let best = 0;
+      let el = null;
+
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+
+        const candidate = document.createElement(tag);
+        candidate.textContent = words
+          .slice(start, start + mid)
+          .join(' ');
+
+        page.appendChild(candidate);
+        const ok = fits();
+        page.removeChild(candidate);
+
+        if (ok) {
+          best = mid;
+          el = candidate;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      if (!best) {
+        if (page.childNodes.length) {
+          finish();
+          continue;
+        }
+
+        best = 1;
+        el = document.createElement(tag);
+        el.textContent = words[start];
+      }
+
+      page.appendChild(el);
+      start += best;
+
+      if (start < words.length) finish();
+    }
+  };
+
+  const header = document.createElement('div');
+  header.className = 'paged-chapter-heading';
+
+  header.innerHTML = `
+    <div class="mini">
+      LIVRO ${b.numeral} — ${escapeHtml(b.title.toUpperCase())}
+      · CAPÍTULO ${chapterCode(n)}
+    </div>
+    <h1>${chapterCode(n)} — ${escapeHtml(c.title)}</h1>
+    <div class="ornament">✦</div>
+  `;
+
+  addBlock(header);
+
+  for (const block of makeBlocks(c.html)) {
+    addBlock(block);
+  }
+
+  finish();
+  measure.remove();
+
+  currentReader = {
+    which,
+    n,
+    idx,
+    pages,
+    position: 0
+  };
+
+  showPages();
+}
+
+function showPages() {
+  const s = currentReader;
+  if (!s) return;
+
+  const mobile = window.matchMedia('(max-width:680px)').matches;
+  const step = mobile ? 1 : 2;
+
+  const left = document.getElementById('pageLeft');
+  const right = document.getElementById('pageRight');
+
+  if (!left) return;
+
+  left.innerHTML = s.pages[s.position] || '';
+
+  if (right) {
+    right.innerHTML = mobile
+      ? ''
+      : (s.pages[s.position + 1] || '');
+  }
+
+  const rightSheet = document.getElementById('rightSheet');
+  if (rightSheet) rightSheet.hidden = mobile;
+
+  const total = s.pages.length;
+  const end = Math.min(total, s.position + step);
+
+  document.getElementById('pageStatus').textContent =
+    `${s.position + 1}${end > s.position + 1 ? '–' + end : ''} de ${total}`;
+
+  const prev = document.getElementById('prevPage');
+  const next = document.getElementById('nextPage');
+
+  prev.disabled = s.position === 0 && s.idx === 0;
+
+  next.textContent = s.position + step >= total
+    ? (s.idx < books[s.which].chapters.length - 1
+      ? 'Próximo capítulo →'
+      : 'Voltar ao índice →')
+    : 'Próxima →';
+}
+
+function movePage(direction) {
+  const s = currentReader;
+  if (!s) return;
+
+  const step = window.matchMedia('(max-width:680px)').matches
+    ? 1
+    : 2;
+
+  if (direction > 0) {
+    if (s.position + step < s.pages.length) {
+      s.position += step;
+      showPages();
+    } else {
+      const b = books[s.which];
+
+      if (s.idx + 1 < b.chapters.length) {
+        go(
+          s.which + '/capitulo/' +
+          chapterCode(b.chapters[s.idx + 1].n)
+        );
+      } else {
+        go('indice/' + s.which);
+      }
+    }
+  } else if (s.position > 0) {
+    s.position = Math.max(0, s.position - step);
+    showPages();
+  } else if (s.idx > 0) {
+    const b = books[s.which];
+    goLastPage = true;
+
+    go(
+      s.which + '/capitulo/' +
+      chapterCode(b.chapters[s.idx - 1].n)
+    );
+  }
+}
+
 function render() {
   let p;
 
@@ -225,53 +481,71 @@ function render() {
   }
 
   const parts = p.split('/');
+  currentReader = null;
+
+  let target = null;
 
   if (p === 'home' || p === 'books') {
     app.innerHTML = home();
-  } else if (p === 'origem' || p === 'ascensao') {
+  } else if (books[p]) {
     app.innerHTML = bookIntro(p);
   } else if (p === 'indice') {
-    // Compatibilidade com links antigos do Livro I
     app.innerHTML = indexPage('origem');
   } else if (parts[0] === 'indice' && books[parts[1]]) {
     app.innerHTML = indexPage(parts[1]);
+  } else if (p === 'records') {
+    app.innerHTML = records();
   } else if (parts[0] === 'capitulo' && parts.length === 2) {
-    // Compatibilidade com links antigos do Livro I
-    app.innerHTML = reader('origem', Number(parts[1]));
+    target = ['origem', Number(parts[1])];
+    app.innerHTML = reader(...target);
   } else if (
     books[parts[0]] &&
     parts[1] === 'capitulo' &&
     parts.length === 3
   ) {
-    app.innerHTML = reader(parts[0], Number(parts[2]));
-  } else if (p === 'records') {
-    app.innerHTML = records();
+    target = [parts[0], Number(parts[2])];
+    app.innerHTML = reader(...target);
   } else {
     app.innerHTML = home();
   }
 
-  let title = 'Biblioteca de Kor’hal';
+  document.title = (
+    target
+      ? 'Capítulo — ' + books[target[0]].title
+      : p === 'home'
+        ? 'Biblioteca de Kor’hal'
+        : books[p]?.title || 'As Crônicas de Korym'
+  ) + ' | Korym';
 
-  if (p === 'records') {
-    title = 'Registros de Kor’hal';
-  } else if (p === 'origem' || p === 'ascensao') {
-    title = books[p].title;
-  } else if (p === 'indice') {
-    title = 'Índice — A Origem';
-  } else if (parts[0] === 'indice' && books[parts[1]]) {
-    title = 'Índice — ' + books[parts[1]].title;
-  } else if (parts[0] === 'capitulo') {
-    title = 'Capítulo — A Origem';
-  } else if (books[parts[0]] && parts[1] === 'capitulo') {
-    title = 'Capítulo — ' + books[parts[0]].title;
+  if (target && books[target[0]].loaded) {
+    requestAnimationFrame(() => {
+      buildPages(...target);
+
+      if (goLastPage && currentReader) {
+        const step = window.matchMedia('(max-width:680px)').matches
+          ? 1
+          : 2;
+
+        currentReader.position =
+          Math.floor((currentReader.pages.length - 1) / step) * step;
+
+        goLastPage = false;
+        showPages();
+      }
+    });
   }
-
-  document.title = title + ' | Korym';
 }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-go],[data-nav]');
-  if (t) go(t.dataset.go || t.dataset.nav);
+  const nav = e.target.closest('[data-go],[data-nav]');
+
+  if (nav) {
+    go(nav.dataset.go || nav.dataset.nav);
+    return;
+  }
+
+  if (e.target.closest('#prevPage')) movePage(-1);
+  if (e.target.closest('#nextPage')) movePage(1);
 });
 
 window.addEventListener('hashchange', () => {
@@ -279,18 +553,53 @@ window.addEventListener('hashchange', () => {
   window.scrollTo(0, 0);
 });
 
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+
+  resizeTimer = setTimeout(() => {
+    if (!currentReader) return;
+
+    const { which, n, position, pages } = currentReader;
+    const fraction = pages.length > 1
+      ? position / (pages.length - 1)
+      : 0;
+
+    buildPages(which, n);
+
+    if (currentReader) {
+      const step = window.matchMedia('(max-width:680px)').matches
+        ? 1
+        : 2;
+
+      currentReader.position = Math.min(
+        Math.floor(
+          fraction * (currentReader.pages.length - 1) / step
+        ) * step,
+        Math.floor(
+          (currentReader.pages.length - 1) / step
+        ) * step
+      );
+
+      showPages();
+    }
+  }, 200);
+});
+
 render();
 
-// Carregamento independente dos dois livros.
+// Carregar os dois livros separadamente.
 for (const which of ['origem', 'ascensao']) {
   fetch(which + '.json', { cache: 'no-cache' })
     .then(r => {
-      if (!r.ok) throw new Error('Arquivo não encontrado: ' + which);
+      if (!r.ok) {
+        throw Error('Arquivo não encontrado: ' + which);
+      }
+
       return r.json();
     })
     .then(data => {
       if (!Array.isArray(data)) {
-        throw new Error('Formato inválido: ' + which);
+        throw Error('Formato inválido: ' + which);
       }
 
       books[which].chapters = data;
@@ -298,18 +607,20 @@ for (const which of ['origem', 'ascensao']) {
       render();
     })
     .catch(error => {
-      console.error('Erro ao carregar ' + which + '.json:', error);
+      console.error(error);
       books[which].loaded = true;
       render();
     });
 }
 
 // Contador de visitas.
-// Incrementa uma vez por carregamento do site.
 if (VISITOR_COUNTER_URL) {
   fetch(VISITOR_COUNTER_URL, { cache: 'no-store' })
     .then(r => {
-      if (!r.ok) throw new Error('Erro no contador: ' + r.status);
+      if (!r.ok) {
+        throw Error('Erro no contador: ' + r.status);
+      }
+
       return r.json();
     })
     .then(d => {
